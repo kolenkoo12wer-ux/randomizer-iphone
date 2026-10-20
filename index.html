@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#10131c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Рандомайзер">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <title>Рандомайзер 1–100</title>
+  <style>
+    :root { color-scheme: dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100svh; padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
+      display: grid; place-items: center; color: #f7f8fc;
+      background: radial-gradient(ellipse at 50% 15%, #242b43 0%, #151925 45%, #0c0f17 100%);
+    }
+    main { width: min(100%, 420px); text-align: center; }
+    .eyebrow { color: #9ba6c3; font-size: 13px; letter-spacing: .16em; text-transform: uppercase; }
+    h1 { margin: 12px 0 30px; font-size: clamp(25px, 7vw, 34px); font-weight: 650; letter-spacing: -.04em; }
+    .number-card {
+      min-height: 270px; display: grid; place-items: center; position: relative; overflow: hidden;
+      border: 1px solid #ffffff1b; border-radius: 32px;
+      background: linear-gradient(145deg, #ffffff12, #ffffff04);
+      box-shadow: 0 24px 80px #0006, inset 0 1px #ffffff12;
+    }
+    .number-card::before { content: ""; position: absolute; width: 210px; height: 210px; border-radius: 50%; background: #8367ff28; filter: blur(60px); }
+    #number { position: relative; font-size: clamp(112px, 35vw, 166px); line-height: 1; font-weight: 750; letter-spacing: -.08em; font-variant-numeric: tabular-nums; text-shadow: 0 8px 34px #0005; transition: transform .18s ease, opacity .18s ease; }
+    #number.tick { transform: scale(.92); opacity: .35; }
+    .status { display: flex; justify-content: center; align-items: center; gap: 9px; margin: 23px 0 26px; color: #aeb6cc; font-size: 15px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #49dfa1; box-shadow: 0 0 12px #49dfa188; }
+    .paused .dot { background: #8890a5; box-shadow: none; }
+    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    button { min-height: 58px; border: 1px solid #ffffff20; border-radius: 18px; color: #fff; font: inherit; font-size: 16px; font-weight: 600; background: #ffffff0b; -webkit-tap-highlight-color: transparent; }
+    button:active { transform: scale(.98); }
+    #toggle { border: 0; background: linear-gradient(135deg, #8b70ff, #6449df); box-shadow: 0 8px 24px #7159ec45; }
+    .hint { margin-top: 22px; color: #737e99; font-size: 13px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">Рандомайзер</div>
+    <h1>Число от 1 до 100</h1>
+    <section class="number-card" aria-live="polite" aria-label="Случайное число">
+      <span id="number">—</span>
+    </section>
+    <div class="status" id="status"><span class="dot"></span><span id="statusText">Новое число через 3 сек</span></div>
+    <div class="controls">
+      <button id="toggle" type="button">Пауза</button>
+      <button id="once" type="button">Случайное сейчас</button>
+    </div>
+    <p class="hint">Число меняется каждые 3 секунды, пока эта страница открыта.</p>
+  </main>
+  <script>
+    (() => {
+      const numberEl = document.getElementById('number');
+      const status = document.getElementById('status');
+      const statusText = document.getElementById('statusText');
+      const toggle = document.getElementById('toggle');
+      const once = document.getElementById('once');
+      const period = 3000;
+      let running = true;
+      let nextAt = Date.now() + period;
+      let timer;
+
+      function randomNumber() {
+        // Uniform integer in [1, 100], using Web Crypto when available.
+        if (window.crypto && crypto.getRandomValues) {
+          const max = 0xffffffff;
+          const limit = max - (max % 100);
+          const n = new Uint32Array(1);
+          do { crypto.getRandomValues(n); } while (n[0] >= limit);
+          return (n[0] % 100) + 1;
+        }
+        return Math.floor(Math.random() * 100) + 1;
+      }
+      function showNumber() {
+        let n = randomNumber();
+        numberEl.classList.add('tick');
+        window.setTimeout(() => {
+          numberEl.textContent = n;
+          numberEl.classList.remove('tick');
+        }, 100);
+      }
+      function tick() {
+        if (!running) return;
+        const remaining = Math.max(0, nextAt - Date.now());
+        statusText.textContent = `Новое число через ${Math.ceil(remaining / 1000)} сек`;
+        if (remaining === 0) {
+          showNumber();
+          nextAt = Date.now() + period;
+        }
+      }
+      function start() {
+        running = true;
+        status.classList.remove('paused');
+        toggle.textContent = 'Пауза';
+        nextAt = Date.now() + period;
+        tick();
+      }
+      function pause() {
+        running = false;
+        status.classList.add('paused');
+        statusText.textContent = 'На паузе';
+        toggle.textContent = 'Продолжить';
+      }
+      showNumber();
+      timer = window.setInterval(tick, 100);
+      toggle.addEventListener('click', () => running ? pause() : start());
+      once.addEventListener('click', () => {
+        showNumber();
+        if (running) nextAt = Date.now() + period;
+      });
+      document.addEventListener('visibilitychange', () => {
+        // If Safari suspends background timers, resume the 3-second cadence on return.
+        if (!document.hidden && running && Date.now() >= nextAt) {
+          showNumber();
+          nextAt = Date.now() + period;
+        }
+      });
+    })();
+  </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+    }
+  </script>
+</body>
+</html>
+
+
